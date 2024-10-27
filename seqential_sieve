@@ -1,0 +1,53 @@
+#include <stdio.h>
+#include <stdbool.h>
+#include <time.h>
+
+void sequential_sieve(int n_primes) {
+    int num = 2;  // Starting number to check for primes
+    int prime_count = 0;  // Number of primes found
+    int primes[n_primes];  // Array to store found primes
+
+    while (prime_count < n_primes) {  // Loop until we find the specified number of primes
+        bool is_prime = true;
+        for (int i = 0; i < prime_count; i++) {
+            if (num % primes[i] == 0) {  // Check if `num` is divisible by any previous primes
+                is_prime = false;  // `num` is not prime
+                break;  // Stop checking further
+            }
+        }
+
+        if (is_prime) {  // If `num` is a prime
+            primes[prime_count++] = num;  // Add `num` to the list of found primes
+            printf("Found prime %d\n", num);  // Output found prime
+        }
+
+        num++;  // Move to the next candidate number
+    }
+
+    printf("Primes found: ");
+    for (int i = 0; i < prime_count; i++) {
+        printf("%d ", primes[i]);
+    }
+    printf("\n");
+}
+
+int main() {
+    int n_primes;
+
+    // Prompt the user for input
+    printf("Enter the number of primes to find: ");
+    scanf("%d", &n_primes);
+
+    // Start measuring time
+    clock_t start_time = clock();
+
+    sequential_sieve(n_primes);  // Run the sequential sieve function
+
+    // End measuring time
+    clock_t end_time = clock();
+    double time_taken = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
+
+    printf("Sequential Execution Time: %f seconds\n", time_taken);
+
+    return 0;
+}
