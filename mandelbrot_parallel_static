@@ -1,0 +1,91 @@
+#include <omp.h>
+#include <stdio.h>
+
+// Structure to represent complex numbers
+struct complex {
+    float real;
+    float imag;
+};
+
+// Function to compute the color of a pixel in the Mandelbrot set
+int cal_pixel(struct complex c) {
+    int count, max;
+    struct complex z;
+    float temp, lengthsq;
+    max = 256;  // Maximum number of iterations
+    z.real = 0; z.imag = 0;
+    count = 0;
+    
+    // Iterating for Mandelbrot set calculation
+    do {
+        temp = z.real * z.real - z.imag * z.imag + c.real;
+        z.imag = 2 * z.real * z.imag + c.imag;
+        z.real = temp;
+        lengthsq = z.real * z.real + z.imag * z.imag;
+        count++;
+    } while ((lengthsq < 4.0) && (count < max));
+    
+    return count;
+}
+
+// Function to compute the Mandelbrot set over a grid of pixels
+void mandelbrot_set(int disp_width, int disp_height, float real_min, float real_max, float imag_min, float imag_max, int num_threads) {
+    // Scaling factors for the complex plane
+    float scale_real = (real_max - real_min) / disp_width;
+    float scale_imag = (imag_max - imag_min) / disp_height;
+
+    // Parallelizing the computation using OpenMP with static scheduling and specifying number of threads
+    #pragma omp parallel for schedule(static) num_threads(num_threads)
+    for (int y = 0; y < disp_height; y++) {  // Parallelizing over rows
+        for (int x = 0; x < disp_width; x++) {  // Looping over columns (pixels in a row)
+            struct complex c;
+            c.real = real_min + x * scale_real;
+            c.imag = imag_min + y * scale_imag;
+
+            int color = cal_pixel(c);  // Get the pixel color based on Mandelbrot set
+
+            // Here we could store or render the result if needed
+            // For this example, we simply compute the color
+        }
+    }
+}
+
+int main() {
+    // Define display dimensions and complex plane bounds
+    int disp_width = 800, disp_height = 800;
+    float real_min = -2.0, real_max = 2.0;
+    float imag_min = -2.0, imag_max = 2.0;
+
+    int num_trials = 10;  // Number of trials for each configuration
+    int thread_counts[] = {2, 4, 6};  // Array of thread configurations to test
+
+    // Loop over each thread configuration
+    for (int t = 0; t < 3; t++) {
+        int num_threads = thread_counts[t];
+        double total_time = 0.0;  // Sum of execution times for averaging
+
+        printf("\nTesting with %d threads:\n", num_threads);
+
+        // Run multiple trials
+        for (int trial = 0; trial < num_trials; trial++) {
+            double start_time = omp_get_wtime();  // Record the start time for this trial
+
+            // Call the function to compute the Mandelbrot set with the current number of threads
+            mandelbrot_set(disp_width, disp_height, real_min, real_max, imag_min, imag_max, num_threads);
+
+            double end_time = omp_get_wtime();  // Record the end time for this trial
+
+            // Calculate execution time for this trial
+            double execution_time = end_time - start_time;
+            printf("Execution time of trial [%d]: %f seconds\n", trial, execution_time);
+
+            total_time += execution_time;  // Add this trial’s time to the total
+        }
+
+        // Calculate and print the average execution time across all trials
+        double average_time = total_time / num_trials;
+        printf("Average execution time with %d threads over %d trials: %f seconds\n", num_threads, num_trials, average_time);
+    }
+
+    return 0;
+}
