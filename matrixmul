@@ -1,0 +1,162 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+// Function prototypes
+void transpose(double *A, double *B, int n);
+void mm(double *A, double *B, double *C, int n);
+void mm_omp(double *A, double *B, double *C, int n);
+void mmT(double *A, double *B, double *C, int n);
+void mmT_omp(double *A, double *B, double *C, int n);
+
+// Transpose function
+void transpose(double *A, double *B, int n) {
+    int i, j;
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < n; j++) {
+            B[j * n + i] = A[i * n + j];
+        }
+    }
+}
+
+// Sequential matrix multiplication
+void mm(double *A, double *B, double *C, int n) {   
+    int i, j, k;
+    for (i = 0; i < n; i++) { 
+        for (j = 0; j < n; j++) {
+            double dot = 0;
+            for (k = 0; k < n; k++) {
+                dot += A[i * n + k] * B[k * n + j];
+            } 
+            C[i * n + j] = dot;
+        }
+    }
+}
+
+// Parallel matrix multiplication using OpenMP
+void mm_omp(double *A, double *B, double *C, int n) {   
+    #pragma omp parallel
+    {
+        int i, j, k;
+        #pragma omp for
+        for (i = 0; i < n; i++) { 
+            for (j = 0; j < n; j++) {
+                double dot = 0;
+                for (k = 0; k < n; k++) {
+                    dot += A[i * n + k] * B[k * n + j];
+                } 
+                C[i * n + j] = dot;
+            }
+        }
+    }
+}
+
+// Sequential matrix multiplication with transposed B
+void mmT(double *A, double *B, double *C, int n) {   
+    int i, j, k;
+    double *B2 = (double*)malloc(sizeof(double) * n * n);
+    transpose(B, B2, n);  // Transpose B into B2
+    for (i = 0; i < n; i++) { 
+        for (j = 0; j < n; j++) {
+            double dot = 0;
+            for (k = 0; k < n; k++) {
+                dot += A[i * n + k] * B2[j * n + k];
+            } 
+            C[i * n + j] = dot;
+        }
+    }
+    free(B2);
+}
+
+// Parallel matrix multiplication with transposed B using OpenMP
+void mmT_omp(double *A, double *B, double *C, int n) {   
+    double *B2 = (double*)malloc(sizeof(double) * n * n);
+    transpose(B, B2, n);  // Transpose B into B2
+
+    #pragma omp parallel
+    {
+        int i, j, k;
+        #pragma omp for
+        for (i = 0; i < n; i++) { 
+            for (j = 0; j < n; j++) {
+                double dot = 0;
+                for (k = 0; k < n; k++) {
+                    dot += A[i * n + k] * B2[j * n + k];
+                } 
+                C[i * n + j] = dot;
+            }
+        }
+    }
+    free(B2);
+}
+
+int main() {
+    int i;
+    double *A, *B, *C, dtime;
+
+    // Array of matrix sizes to test
+    int sizes[] = {256, 512, 1024};
+    int num_sizes = sizeof(sizes) / sizeof(sizes[0]);
+
+    // Array of thread counts to test
+    int thread_counts[] = {2, 4, 8};
+    int num_thread_counts = sizeof(thread_counts) / sizeof(thread_counts[0]);
+
+    // Loop through each matrix size
+    for (int s = 0; s < num_sizes; s++) {
+        int n = sizes[s];
+        printf("Matrix size: %d x %d\n", n, n);
+
+        // Allocate memory for matrices A, B, and C
+        A = (double*)malloc(sizeof(double) * n * n);
+        B = (double*)malloc(sizeof(double) * n * n);
+        C = (double*)malloc(sizeof(double) * n * n);
+        
+        // Initialize matrices A and B with random values
+        for (i = 0; i < n * n; i++) {
+            A[i] = rand() / (double)RAND_MAX;
+            B[i] = rand() / (double)RAND_MAX;
+        }
+
+        // Loop through each thread count
+        for (int t = 0; t < num_thread_counts; t++) {
+            int threads = thread_counts[t];
+            omp_set_num_threads(threads);  // Set the number of threads
+
+            printf("Number of threads: %d\n", threads);
+
+            // Measure and print execution time for each multiplication version
+            dtime = omp_get_wtime();
+            mm(A, B, C, n);
+            dtime = omp_get_wtime() - dtime;
+            printf("mm (Sequential): %f seconds\n", dtime);
+
+            dtime = omp_get_wtime();
+            mm_omp(A, B, C, n);
+            dtime = omp_get_wtime() - dtime;
+            printf("mm_omp (Parallel): %f seconds\n", dtime);
+
+            dtime = omp_get_wtime();
+            mmT(A, B, C, n);
+            dtime = omp_get_wtime() - dtime;
+            printf("mmT (Sequential with Transpose): %f seconds\n", dtime);
+
+            dtime = omp_get_wtime();
+            mmT_omp(A, B, C, n);
+            dtime = omp_get_wtime() - dtime;
+            printf("mmT_omp (Parallel with Transpose): %f seconds\n", dtime);
+
+            printf("\n");  // Blank line for readability between thread counts
+        }
+
+        // Free allocated memory
+        free(A);
+        free(B);
+        free(C);
+
+        printf("\n");  // Blank line for readability between matrix sizes
+    }
+
+    return 0;
+}
+
